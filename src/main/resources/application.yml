@@ -1,0 +1,27 @@
+server:
+  port: 8081
+
+spring:
+  redis:
+    host: 175.178.108.7
+    port: 6379
+    password: BHuEqwbXF6euRKYq
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 10
+        min-idle: 1
+        time-between-eviction-runs: 10s
+  datasource:
+    druid:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://175.178.108.7:3306/review_on?useUnicode=true&characterEncoding=utf8&autoReconnect=true&rewriteBatchedStatements=TRUE&serverTimezone=Hongkong&allowMultiQueries=true&nullCatalogMeansCurrent=true
+      username: root
+      password: TT9pC9oNq8y!&BMq
+
+mybatis-plus:
+  global-config:
+    db-config:
+      table-prefix: tb_
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
