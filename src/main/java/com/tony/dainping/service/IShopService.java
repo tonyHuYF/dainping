@@ -1,11 +1,12 @@
 package com.tony.dainping.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tony.dainping.dto.Result;
 import com.tony.dainping.entity.Shop;
 
 /**
  * <p>
- *  服务类
+ * 服务类
  * </p>
  *
  * @author 虎哥
@@ -13,4 +14,6 @@ import com.tony.dainping.entity.Shop;
  */
 public interface IShopService extends IService<Shop> {
 
+
+    public Result queryShopById(Long id);
 }
