@@ -9,6 +9,7 @@ import com.tony.dainping.dto.Result;
 import com.tony.dainping.entity.Shop;
 import com.tony.dainping.mapper.ShopMapper;
 import com.tony.dainping.service.IShopService;
+import com.tony.dainping.utils.CacheClient;
 import com.tony.dainping.utils.RedisConstants;
 import com.tony.dainping.utils.RedisData;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +37,16 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
+    @Autowired
+    private CacheClient client;
+
     @Override
     public Result queryShopById(Long id) {
+
+        //        缓存穿透
+//        Shop shop = client.queryWithPassThrough(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById,
+//                RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+
 //        缓存穿透
 //        Shop shop = queryWithPassThrough(id);
 
@@ -45,7 +54,11 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 //        Shop shop = queryWithMutex(id);
 
         //逻辑过期解除缓存击穿
-        Shop shop = queryWithLogicExpire(id);
+//        Shop shop = queryWithLogicExpire(id);
+
+        //逻辑过期解除缓存击穿
+        Shop shop = client.queryWithLogicExpire(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById,
+                20L, TimeUnit.SECONDS);
 
         if (shop == null) {
             return Result.fail("店铺不存在！");
