@@ -9,7 +9,11 @@ import com.tony.dainping.service.ISeckillVoucherService;
 import com.tony.dainping.service.IVoucherOrderService;
 import com.tony.dainping.utils.RedisIdWorker;
 import com.tony.dainping.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +35,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Autowired
     private RedisIdWorker redisIdWorker;
 
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
     @Override
-    @Transactional
     public Result seckillVoucher(Long voucherId) {
         //查询优惠券
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -48,6 +57,40 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
         if (voucher.getStock() < 1) {
             return Result.fail("库存不足");
+        }
+
+        Long userId = UserHolder.getUser().getId();
+
+//        SimpleRedisLock lock = new SimpleRedisLock(stringRedisTemplate, "order:" + userId);
+
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+
+        boolean isLock = lock.tryLock();
+
+        if (!isLock) {
+            return Result.fail("获取锁失败");
+        }
+
+        try {
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            lock.unlock();
+        }
+
+
+    }
+
+
+    @Transactional
+    public Result createVoucherOrder(Long voucherId) {
+        Long userId = UserHolder.getUser().getId();
+
+        //查询是否以购买，一人一单
+        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+
+        if (count > 0) {
+            return Result.fail("用户已购买，一人一单");
         }
 
         //减扣库存
