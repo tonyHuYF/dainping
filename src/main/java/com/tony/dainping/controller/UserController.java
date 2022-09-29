@@ -1,9 +1,11 @@
 package com.tony.dainping.controller;
 
 
+import cn.hutool.core.bean.BeanUtil;
 import com.tony.dainping.dto.LoginFormDTO;
 import com.tony.dainping.dto.Result;
 import com.tony.dainping.dto.UserDTO;
+import com.tony.dainping.entity.User;
 import com.tony.dainping.entity.UserInfo;
 import com.tony.dainping.service.IUserInfoService;
 import com.tony.dainping.service.IUserService;
@@ -82,4 +84,20 @@ public class UserController {
         // 返回
         return Result.ok(info);
     }
+
+    // UserController 根据id查询用户
+
+    @GetMapping("/{id}")
+    public Result queryUserById(@PathVariable("id") Long userId){
+        // 查询详情
+        User user = userService.getById(userId);
+        if (user == null) {
+            return Result.ok();
+        }
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        // 返回
+        return Result.ok(userDTO);
+    }
+
+
 }
