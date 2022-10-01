@@ -14,12 +14,15 @@ import com.tony.dainping.service.IUserService;
 import com.tony.dainping.utils.RedisConstants;
 import com.tony.dainping.utils.RegexUtils;
 import com.tony.dainping.utils.SystemConstants;
+import com.tony.dainping.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpSession;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -105,5 +108,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         user.setNickName(SystemConstants.USER_NICK_NAME_PREFIX + RandomUtil.randomString(10));
         save(user);
         return user;
+    }
+
+    @Override
+    public Result sign() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime time = LocalDateTime.now();
+
+        String dateStr = time.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        //1个月的第几天
+        int dayOfMonth = time.getDayOfMonth();
+
+        String key = "sign:" + userId + dateStr;
+
+        stringRedisTemplate.opsForValue().setBit(key, dayOfMonth - 1, true);
+
+        return Result.ok();
     }
 }

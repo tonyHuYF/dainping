@@ -14,16 +14,16 @@ import com.tony.dainping.utils.RedisIdWorker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @SpringBootTest
 class DainpingApplicationTests {
@@ -75,7 +75,7 @@ class DainpingApplicationTests {
     void testToken() {
         List<User> list = userService.query().list();
 
-        list.forEach(user->{
+        list.forEach(user -> {
             //保存用户到redis中，以随机码token作为Key
             String token = UUID.randomUUID().toString(true);
             UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
@@ -95,8 +95,35 @@ class DainpingApplicationTests {
     @Test
     void getToken() {
         Set<String> keys = stringRedisTemplate.keys("login:user:*");
-        keys.forEach(p->{
-            System.out.println(p.toString().replace("login:user:",""));
+        keys.forEach(p -> {
+            System.out.println(p.toString().replace("login:user:", ""));
         });
+    }
+
+    @Test
+    void loadShop() {
+        //查询店铺
+        List<Shop> list = shopService.list();
+        //分组，分装
+        Map<Long, List<Shop>> shopMap = list.stream().collect(Collectors.groupingBy(Shop::getTypeId));
+
+        //导入redsi
+
+        for (Map.Entry<Long, List<Shop>> entry : shopMap.entrySet()) {
+            String key = "shop:geo:" + entry.getKey();
+
+            List<RedisGeoCommands.GeoLocation<String>> locations = new ArrayList<>();
+
+            for (Shop shop : entry.getValue()) {
+                locations.add(new RedisGeoCommands.GeoLocation<>(
+                        shop.getId().toString(), new Point(shop.getX(), shop.getY())));
+
+            }
+
+            stringRedisTemplate.opsForGeo().add(key, locations);
+
+        }
+
+
     }
 }
