@@ -17,6 +17,7 @@ import com.tony.dainping.utils.SystemConstants;
 import com.tony.dainping.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,7 @@ import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -125,5 +127,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         stringRedisTemplate.opsForValue().setBit(key, dayOfMonth - 1, true);
 
         return Result.ok();
+    }
+
+    @Override
+    public Result signCount() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime time = LocalDateTime.now();
+
+        String dateStr = time.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        //1个月的第几天
+        int dayOfMonth = time.getDayOfMonth();
+//        int dayOfMonth = 8;
+
+        String key = "sign:" + userId + dateStr;
+
+        //获取bitmap数据 bitfied get key u 0
+        List<Long> result = stringRedisTemplate.opsForValue().bitField(key,
+                BitFieldSubCommands.create().get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth)).valueAt(0));
+
+        if (result == null || result.isEmpty()) {
+            return Result.ok(0);
+        }
+
+        Long num = result.get(0);
+
+        if (num == null || num == 0) {
+            return Result.ok(0);
+        }
+
+        int count = 0;
+        while (true) {
+            if ((num & 1) == 0) {
+                // bitmap数据最后一位与1做与运算 = 0 ，即为最后一位是0 ，未签到
+                break;
+            } else {
+                //已签到
+                count++;
+            }
+            //右移一位
+            num >>>= 1;
+        }
+
+
+        return Result.ok(count);
     }
 }
