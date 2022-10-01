@@ -13,12 +13,15 @@ import com.tony.dainping.mapper.BlogMapper;
 import com.tony.dainping.service.IBlogService;
 import com.tony.dainping.service.IFollowService;
 import com.tony.dainping.service.IUserService;
+import com.tony.dainping.utils.ScrollResult;
 import com.tony.dainping.utils.SystemConstants;
 import com.tony.dainping.utils.UserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -154,5 +157,56 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
         // 返回id
         return Result.ok(blog.getId());
+    }
+
+    @Override
+    public Result queryBlogOfFollow(Long max, Integer offset) {
+        Long userId = UserHolder.getUser().getId();
+
+        //查询用户id，获取对应的收件箱blog内容
+        String key = "feed:" + userId;
+
+        Set<ZSetOperations.TypedTuple<String>> tupleSet = stringRedisTemplate.opsForZSet()
+                .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
+
+        if (tupleSet == null || tupleSet.isEmpty()) {
+            return Result.ok();
+        }
+
+        //解析数据
+        List<Long> ids = new ArrayList<>();
+        long minTime = 0;
+        int os = 1;
+
+        for (ZSetOperations.TypedTuple<String> tuple : tupleSet) {
+            //获取id
+            ids.add(Long.valueOf(tuple.getValue()));
+            //获取时间戳，根据其获取下一次查询的minTime、offset
+            long time = tuple.getScore().longValue();
+            if (time == minTime) {
+                os++;
+            } else {
+                minTime = time;
+                os = 1;
+            }
+        }
+
+        //根据 blog id 查询 blog
+        String idsStr = StrUtil.join(",", ids);
+        List<Blog> blogs = query().in("id", ids)
+                .last("ORDER BY FIELD(id," + idsStr + ")").list();
+
+        blogs.forEach(p -> {
+            queryBlogUser(p);
+            isBlogLiked(p);
+        });
+
+        //封装并返回
+        ScrollResult result = new ScrollResult();
+        result.setList(blogs);
+        result.setMinTime(minTime);
+        result.setOffset(os);
+
+        return Result.ok(result);
     }
 }
